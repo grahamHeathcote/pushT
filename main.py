@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader
 from neural_network import Network
+from jepa import Jepa
 from torch import nn
 
 
@@ -33,7 +34,7 @@ train_ds = TensorDataset(X_train.T, Y_train.T)
 train_data_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
 
 device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
-model = Network(12, 10, 10, 12)
+model = Jepa(12, 10, 10, 4).encoder
 model.to(device)
 
 loss_func = nn.MSELoss()
