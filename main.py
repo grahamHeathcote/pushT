@@ -5,6 +5,8 @@ import torch
 from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader
 from neural_network import Network
+from torch import nn
+
 
 def generate_training_data(samples):
     env = gym.make("gym_pusht/PushT-v0")
@@ -19,15 +21,33 @@ def generate_training_data(samples):
         arr[7:12, i] = observation
     X = arr[:, :samples-1]
     Y = arr[:, 1:]
-    return torch.from_numpy(X).float(), torch.from_numpy(Y).float
+    return torch.from_numpy(X).float(), torch.from_numpy(Y).float()
 
 
-X_train, Y_train = generate_training_data(100)
 
-print(X_train.dtype)
-encoder = Network(12, 10, 10, 8)
-out = encoder(X_train[:, 20])
-print(out)
+batch_size = 500
+epochs = 10
 
-train_ds = TensorDataset(X_train,Y_train)
-train_data_loader = DataLoader(train_ds, batch_size=500)
+X_train, Y_train = generate_training_data(10000)
+train_ds = TensorDataset(X_train.T, Y_train.T)
+train_data_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+
+device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
+model = Network(12, 10, 10, 12)
+model.to(device)
+
+loss_func = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr = 1e-3)
+
+for epoch in range(epochs):
+    model.train()
+
+    for x, y in train_data_loader:
+        x = x.to(device)
+        y = y.to(device)
+        y_pred = model(x)
+        loss = loss_func(y, y_pred)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        print(loss.item())
