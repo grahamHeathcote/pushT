@@ -37,7 +37,7 @@ def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
 
     for epoch in range(epochs):
         jepa.train()
-
+        loss_sum = 0
         for x, y in train_data_loader:
             a = y[:, 5:7].to(device)
             x = x.to(device)
@@ -50,7 +50,8 @@ def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            print(loss.item())
+            loss_sum += loss.item()
+        print(loss_sum)
 
 jepa = Jepa(6, 10, 8, 8)
-train_jepa(jepa, 500, 100, 5, 1e-3)
+train_jepa(jepa, 50000, 10000, 500, 1e-3)
