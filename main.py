@@ -4,11 +4,11 @@ import numpy as np
 import torch
 from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader
-from neural_network import Network
 from jepa import Jepa
 from torch import nn
 
-
+# State Action State
+#              State Action State
 def generate_training_data(samples):
     env = gym.make("gym_pusht/PushT-v0")
     arr = np.empty((12, samples))
@@ -25,30 +25,30 @@ def generate_training_data(samples):
     return torch.from_numpy(X).float(), torch.from_numpy(Y).float()
 
 
+def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
+    X_train, Y_train = generate_training_data(sample_size)
+    train_ds = TensorDataset(X_train.T, Y_train.T)
+    train_data_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
 
-batch_size = 500
-epochs = 10
+    device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
+    jepa.to(device)
+    loss_func = nn.MSELoss()
+    optimizer = torch.optim.Adam(jepa.parameters(), lr)
 
-X_train, Y_train = generate_training_data(10000)
-train_ds = TensorDataset(X_train.T, Y_train.T)
-train_data_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    for epoch in range(epochs):
+        jepa.train()
 
-device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
-model = Jepa(12, 10, 10, 4).encoder
-model.to(device)
+        for x, y in train_data_loader:
+            # a = y[:, 5:7].to(device)
+            x = x.to(device)
+            y = y.to(device)
+            y_pred = jepa.predictor(jepa.encoder(x))
+            y_true = jepa.encoder(y)
+            loss = loss_func(y_true, y_pred)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            print(loss.item())
 
-loss_func = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr = 1e-3)
-
-for epoch in range(epochs):
-    model.train()
-
-    for x, y in train_data_loader:
-        x = x.to(device)
-        y = y.to(device)
-        y_pred = model(x)
-        loss = loss_func(y, y_pred)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        print(loss.item())
+jepa = Jepa(6, 10, 8, 8)
+train_jepa(jepa, 50000, 10000, 5, 1e-3)
