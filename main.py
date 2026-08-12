@@ -39,10 +39,12 @@ def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
         jepa.train()
 
         for x, y in train_data_loader:
-            # a = y[:, 5:7].to(device)
+            a = y[:, 5:7].to(device)
             x = x.to(device)
             y = y.to(device)
-            y_pred = jepa.predictor(jepa.encoder(x))
+            x_encoded =jepa.encoder(x)
+            x_encoded_a = torch.cat([x_encoded, a], dim=1)
+            y_pred = jepa.predictor(x_encoded_a)
             y_true = jepa.encoder(y)
             loss = loss_func(y_true, y_pred)
             loss.backward()
@@ -51,4 +53,4 @@ def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
             print(loss.item())
 
 jepa = Jepa(6, 10, 8, 8)
-train_jepa(jepa, 50000, 10000, 5, 1e-3)
+train_jepa(jepa, 500, 100, 5, 1e-3)
