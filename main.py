@@ -6,6 +6,7 @@ from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader
 from jepa import Jepa
 from torch import nn
+from lightly.loss import VICRegLoss
 
 # State Action State
 #              State Action State
@@ -32,7 +33,13 @@ def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
 
     device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
     jepa.to(device)
-    loss_func = nn.MSELoss()
+
+    loss_func = VICRegLoss(
+        lambda_param=25.0,
+        mu_param=25.0,
+        nu_param=1.0,
+        eps=1e-4,
+    )
     optimizer = torch.optim.Adam(jepa.parameters(), lr)
 
     for epoch in range(epochs):

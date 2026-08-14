@@ -6,5 +6,7 @@ readme = "README.md"
 requires-python = "==3.10.*"
 dependencies = [
     "gym-pusht>=0.1.6",
+    "lightly>=1.5.26",
+    "numpy>=2.2.6",
     "torch>=2.13.0",
 ]
