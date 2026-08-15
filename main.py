@@ -45,7 +45,13 @@ def generate_training_data(samples):
     arr = np.empty((12, samples))
     env.reset()
     observation, _, _, _, _ = env.step(env.action_space.sample())
+    j = 0
     for i in range(samples):
+        j = j+1
+        if j == 300:
+            j = 0
+            env.reset()
+            observation, _, _, _, _ = env.step(env.action_space.sample())
         arr[:5, i] = observation
         action = env.action_space.sample()
         arr[5:7, i] = action
@@ -53,8 +59,8 @@ def generate_training_data(samples):
         arr[7:12, i] = observation
     X = arr[:, :samples-1]
     Y = arr[:, 1:]
-    X = normalize_sas(torch.from_numpy(X).float().T).T  # CHANGED: normalize
-    Y = normalize_sas(torch.from_numpy(Y).float().T).T  # CHANGED: normalize
+    X = normalize_sas(torch.from_numpy(X).float().T).T
+    Y = normalize_sas(torch.from_numpy(Y).float().T).T
     return X, Y
 
 def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
@@ -86,11 +92,9 @@ def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
 
             loss = loss_func(y_true, y_pred)
 
-            z_dec = torch.cat([x_encoded, y_true])
-            tgt = torch.cat([x[:, 7:12], y[:, 7:12]])
+            z_dec = torch.cat([x_encoded, y_true, y_pred])
+            tgt   = torch.cat([x[:, 7:12], y[:, 7:12], y[:, 7:12]])
             dec_loss = nn.MSELoss()(jepa.decoder(z_dec), tgt)
-            print("loss", loss)
-            print("dec loss,", dec_loss)
             (loss + 10.0 * dec_loss).backward()
 
 
@@ -110,10 +114,7 @@ def cross_entropy_method(jepa, s1, a1, s2, goal, horizon, n_samples, n_elite, n_
     init_t = normalize_sas(init_t)
     z_start = jepa.encoder(init_t.unsqueeze(0)).repeat(n_samples, 1)
 
-    goal_full = np.concatenate([s2, a1, np.array([256., 256., goal[0], goal[1], goal[2]])])
-    goal_t = torch.from_numpy(goal_full).float().to(device)
-    goal_t = normalize_sas(goal_t)
-    goal_encoded = jepa.encoder(goal_t.unsqueeze(0))[0]
+    goal_n = normalize_state(torch.tensor([0., 0., goal[0], goal[1], goal[2]], dtype=torch.float32, device=device))[2:5]
 
     for i in range(n_iters):
         actions = std * torch.randn(n_samples, horizon, 2, device=device) + mean
@@ -124,7 +125,7 @@ def cross_entropy_method(jepa, s1, a1, s2, goal, horizon, n_samples, n_elite, n_
             for t in range(horizon):
                 a_t = normalize_action(actions[:, t, :])
                 z = jepa.predictor(torch.cat([z, a_t], dim=1))
-            costs = ((z[:, -3:] - goal_encoded[-3:]) ** 2).sum(dim=1)
+            costs = ((jepa.decoder(z)[:, 2:5] - goal_n) ** 2).sum(dim=1)
 
         elites_idx = costs.topk(n_elite, largest=False).indices
         elite_actions = actions[elites_idx]
@@ -135,7 +136,7 @@ def cross_entropy_method(jepa, s1, a1, s2, goal, horizon, n_samples, n_elite, n_
 
 
 
-jepa = Jepa(6, 8)
+jepa = Jepa(24, 100)
 train_jepa(jepa, 10000, 1000, 250, 1e-3)
 
 env = gym.make("gym_pusht/PushT-v0", render_mode="human")
@@ -147,7 +148,7 @@ goal_state = env.unwrapped.goal_pose
 
 
 for i in range(200):
-    mean = cross_entropy_method(jepa, s1, a1, s2, goal_state, 180, 350, 80, 500)
+    mean = cross_entropy_method(jepa, s1, a1, s2, goal_state, 180, 200, 20, 200)
     s1 = s2
     a1 = mean.cpu().numpy()
     s2, _, _, _, _ = env.step(a1)
