@@ -62,40 +62,47 @@ def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
         print(loss_sum)
 
 
-def cross_entropy_method(jepa, init, goal, horizon, n_samples, n_elite, n_iters):
+
+def cross_entropy_method(jepa, s1, a1, s2, goal, horizon, n_samples, n_elite, n_iters):
     mean = torch.full((horizon, 2), 256, device=device)
-    std = torch.zeros(horizon, 2, device=device)
+    std = torch.full((horizon, 2), 100.0, device=device)
+
+    init = np.concatenate([s1, a1, s2])
+    init_t = torch.from_numpy(init).float().to(device)
+    z_start = jepa.encoder(init_t.unsqueeze(0)).repeat(n_samples, 1)
+
+    goal_full = np.concatenate([s2, a1, np.array([256., 256., goal[0], goal[1], goal[2]])])
+    goal_t = torch.from_numpy(goal_full).float().to(device)
+    goal_encoded = jepa.encoder(goal_t.unsqueeze(0))[0]
 
     for i in range(n_iters):
         actions = std * torch.randn(n_samples, horizon, 2, device=device) + mean
         actions = actions.clamp(0, 512)
-        costs = torch.zeros(n_samples, device=device)
-
-        init = torch.from_numpy(init).float().to(device)
-        goal = torch.from_numpy(goal).float().to(device)
-
-        z = jepa.encoder(init.unsqueeze(0)).repeat(n_samples, 1)
-        goal = jepa.encoder(goal.unsqueeze(0))[0]
+        z = z_start.clone()
 
         with torch.no_grad():
             for t in range(horizon):
                 a_t = actions[:, t, :]
                 z = jepa.predictor(torch.cat([z, a_t], dim=1))
-            costs = ((z - goal) ** 2).sum(dim =1)
+            costs = ((z[:, -3:] - goal_encoded[-3:]) ** 2).sum(dim=1)
 
         elites_idx = costs.topk(n_elite, largest=False).indices
         elite_actions = actions[elites_idx]
         mean = elite_actions.mean(dim=0)
         std = elite_actions.std(dim=0) + 1e-6
-        print(i, " mean ", mean, " std ", std)
+        print(i, " mean ", mean[0], " std ", std[0])
     return mean[0]
 
 jepa = Jepa(6, 10, 8, 8)
 train_jepa(jepa, 10000, 1000, 250, 1e-3)
 
 env = gym.make("gym_pusht/PushT-v0")
-init_state, _ = env.reset()
+
+s1, _ = env.reset()
+a1 = env.action_space.sample()
+s2, _, _, _, _ = env.step(a1)
+
 goal_state = env.unwrapped.goal_pose
 
-cross_entropy_method(jepa, init_state, goal_state, 50, 250, 50, 20)
+cross_entropy_method(jepa, s1, a1, s2, goal_state, 50, 250, 50, 100)
 
