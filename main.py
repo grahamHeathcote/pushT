@@ -54,8 +54,15 @@ def train_jepa(jepa, sample_size, batch_size, epochs, lr=1e-3):
             x_encoded_a = torch.cat([x_encoded, a], dim=1)
             y_pred = jepa.predictor(x_encoded_a)
             y_true = jepa.encoder(y)
+
             loss = loss_func(y_true, y_pred)
-            loss.backward()
+
+            z_dec = torch.cat([x_encoded, y_true])
+            tgt = torch.cat([x[:, 7:12], y[:, 7:12]])
+            dec_loss = nn.MSELoss()(jepa.decoder(z_dec), tgt)
+
+            (loss + 10.0 * dec_loss).backward()
+
             optimizer.step()
             optimizer.zero_grad()
             loss_sum += loss.item()
@@ -96,7 +103,7 @@ def cross_entropy_method(jepa, s1, a1, s2, goal, horizon, n_samples, n_elite, n_
 
 
 
-jepa = Jepa(6, 10, 8, 8)
+jepa = Jepa(6, 8)
 train_jepa(jepa, 100000, 10000, 500, 1e-3)
 
 env = gym.make("gym_pusht/PushT-v0", render_mode="human")
