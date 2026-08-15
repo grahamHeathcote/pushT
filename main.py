@@ -90,19 +90,26 @@ def cross_entropy_method(jepa, s1, a1, s2, goal, horizon, n_samples, n_elite, n_
         elite_actions = actions[elites_idx]
         mean = elite_actions.mean(dim=0)
         std = elite_actions.std(dim=0) + 1e-6
-        print(i, " mean ", mean[0], " std ", std[0])
+        # print(i, " mean ", mean[0], " std ", std[0])
     return mean[0]
 
-jepa = Jepa(6, 10, 8, 8)
-train_jepa(jepa, 10000, 1000, 250, 1e-3)
 
-env = gym.make("gym_pusht/PushT-v0")
+
+
+jepa = Jepa(6, 10, 8, 8)
+train_jepa(jepa, 100000, 10000, 500, 1e-3)
+
+env = gym.make("gym_pusht/PushT-v0", render_mode="human")
 
 s1, _ = env.reset()
 a1 = env.action_space.sample()
 s2, _, _, _, _ = env.step(a1)
-
 goal_state = env.unwrapped.goal_pose
 
-cross_entropy_method(jepa, s1, a1, s2, goal_state, 50, 250, 50, 100)
 
+for i in range(200):
+    mean = cross_entropy_method(jepa, s1, a1, s2, goal_state, 180, 350, 80, 500)
+    s1 = s2
+    a1 = mean.cpu().numpy()
+    s2, _, _, _, _ = env.step(a1)
+    env.render()
