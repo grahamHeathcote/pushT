@@ -74,7 +74,7 @@ def cross_entropy_method(jepa, init, goal, horizon, n_samples, n_elite, n_iters,
             for t in range(horizon):
                 a_t = actions[:, t, :]
                 z = jepa.predictor(torch.cat[z, a_t], dim=1)
-            costs = ((x - goal) ** 2).sum(dim =1)
+            costs = ((z - goal) ** 2).sum(dim =1)
 
         elites_idx = costs.topk(n_elite, largest=False).indices
         elite_actions = actions[elites_idx]
