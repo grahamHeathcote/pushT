@@ -40,7 +40,7 @@ device = torch.accelerator.current_accelerator().type if torch.accelerator.is_av
 
 
 def behavior_action(obs, rng):
-    return np.clip(obs[2:4] + rng.normal(0, 60, 2), 0, 512)
+    return np.clip(obs[2:4] + rng.normal(0, 100, 2), 0, 512)
 
 # State Action State
 #              State Action State
@@ -135,7 +135,7 @@ def cross_entropy_method(jepa, s1, a1, s2, goal, horizon, n_samples, n_elite, n_
         elites_idx = costs.topk(n_elite, largest=False).indices
         elite_actions = actions[elites_idx]
         mean = 0.7 * mean + 0.3 * elite_actions.mean(dim=0)
-        std  = (0.7 * std + 0.3 * elite_actions.std(dim=0)).clamp(min=10.0)
+        std  = (0.7 * std + 0.3 * elite_actions.std(dim=0)).clamp(min=5)
     return mean[0]
 
 
@@ -153,7 +153,7 @@ goal_state = env.unwrapped.goal_pose
 
 
 for i in range(200):
-    mean = cross_entropy_method(jepa, s1, a1, s2, goal_state, 50, 200, 20, 50)
+    mean = cross_entropy_method(jepa, s1, a1, s2, goal_state, 75, 180, 20, 75)
     s1 = s2
     a1 = mean.cpu().numpy()
     s2, _, _, _, _ = env.step(a1)
